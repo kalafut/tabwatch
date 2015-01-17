@@ -1,28 +1,25 @@
 #!/usr/bin/env python
 
+import json
 import Queue
 import subprocess
 from subprocess import PIPE
 import sys
 import threading
 
-# colors, as RGB hex
-COLORS = {
-    "green":  "#0CEB43",
-    "red":    "#F5384B",
-    "yellow": "#DFF51D"
-}
 
 PATTERNS = [
     ("glitch: all OK", None, "green"),
     ("glitch: failed", "glitch: building", "red"),
     ("glitch: failed", "--- FAIL", "yellow"),
     ("glitch: building", None, None),
+    ("[nodemon] clean", None, "green"),
+    ("[nodemon] app crashed", None, "red"),
     ("--- FAIL", None, None),
     ]
 
 def set_color(hex_color):
-    print "\033]6;1;bg;*;default\a"
+    print "\033]6;1;bg;*;default\a",
 
     if hex_color:
         for idx, color in enumerate(["red", "green", "blue"]):
@@ -34,6 +31,14 @@ def pipereader(in_pipe, out_pipe, queue):
         line = in_pipe.readline()
         out_pipe.write(line)
         queue.put(item=line, block=True)
+
+def loadconfig(filename):
+    fp = open(filename)
+    cfg = json.load(fp)
+    return cfg
+
+# colors, as RGB hex
+COLORS = loadconfig("test.json")["colors"]
 
 def run():
     proc = subprocess.Popen(sys.argv[1:], stdout=PIPE, stderr=PIPE)
@@ -61,4 +66,5 @@ def run():
         set_color(None)
         exit()
 
-run()
+if __name__ == '__main__':
+    run()
