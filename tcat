@@ -1,0 +1,48 @@
+#!/usr/bin/env python
+
+import subprocess
+from subprocess import PIPE
+import sys
+
+# colors, as RGB hex
+COLORS = {
+    "green":  "#0CEB43",
+    "red":    "#F5384B",
+    "yellow": "#DFF51D"
+}
+
+PATTERNS = [
+    ("glitch: all OK", None, "green"),
+    ("glitch: failed", "glitch: building", "red"),
+    ("glitch: failed", "--- FAIL", "yellow"),
+    ("glitch: building", None, None),
+    ("--- FAIL", None, None),
+    ]
+
+def set_color(hex_color):
+    print "\033]6;1;bg;*;default\a"
+
+    if hex_color:
+        for idx, color in enumerate(["red", "green", "blue"]):
+            print("\033]6;1;bg;{};brightness;{}\a".format(color, int(hex_color[idx*2+1:idx*2+3],16)))
+
+proc = subprocess.Popen(sys.argv[1:], stdout=PIPE, stderr=PIPE)
+
+try:
+    last_match = ""
+    while True:
+        line_err = proc.stderr.readline()
+        print line_err,
+
+        line = line_err.strip()
+        for p in PATTERNS:
+            if p[0] in line and (p[1] == None or p[1] in last_match):
+                last_match = line
+                set_color(COLORS.get(p[2]))
+                sys.stdout.flush()
+                break
+
+except KeyboardInterrupt:
+    set_color(None)
+    exit()
+
