@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 
+import Queue
 import subprocess
 from subprocess import PIPE
 import sys
+import threading
 
 # colors, as RGB hex
 COLORS = {
@@ -26,23 +28,37 @@ def set_color(hex_color):
         for idx, color in enumerate(["red", "green", "blue"]):
             print("\033]6;1;bg;{};brightness;{}\a".format(color, int(hex_color[idx*2+1:idx*2+3],16)))
 
-proc = subprocess.Popen(sys.argv[1:], stdout=PIPE, stderr=PIPE)
 
-try:
-    last_match = ""
+def pipereader(in_pipe, out_pipe, queue):
     while True:
-        line_err = proc.stderr.readline()
-        print line_err,
+        line = in_pipe.readline()
+        out_pipe.write(line)
+        queue.put(item=line, block=True)
 
-        line = line_err.strip()
-        for p in PATTERNS:
-            if p[0] in line and (p[1] == None or p[1] in last_match):
-                last_match = line
-                set_color(COLORS.get(p[2]))
-                sys.stdout.flush()
-                break
+def run():
+    proc = subprocess.Popen(sys.argv[1:], stdout=PIPE, stderr=PIPE)
+    queue = Queue.Queue(maxsize=10)
 
-except KeyboardInterrupt:
-    set_color(None)
-    exit()
+    for pipe in ['stdout', 'stderr']:
+        thread = threading.Thread(target=pipereader,
+                                  args=(getattr(proc, pipe), getattr(sys, pipe), queue))
+        thread.daemon = True
+        thread.start()
 
+    try:
+        last_match = ""
+        while True:
+            line = queue.get(block=True).strip()
+
+            for pat in PATTERNS:
+                if pat[0] in line and (pat[1] == None or pat[1] in last_match):
+                    last_match = line
+                    set_color(COLORS.get(pat[2]))
+                    sys.stdout.flush()
+                    break
+
+    except KeyboardInterrupt:
+        set_color(None)
+        exit()
+
+run()
