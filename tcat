@@ -1,14 +1,17 @@
 #!/usr/bin/env python
 
 import json
+import os
 import Queue
+import re
 import subprocess
-from subprocess import PIPE
 import sys
 import threading
-import yaml
+
+from subprocess import PIPE
 
 
+CONFIG = os.path.join(os.path.expanduser("~"), ".tcatconfig")
 PATTERNS = [
     ("glitch: all OK", None, "green"),
     ("glitch: failed", "glitch: building", "red"),
@@ -24,7 +27,7 @@ def set_color(hex_color):
 
     if hex_color:
         for idx, color in enumerate(["red", "green", "blue"]):
-            print("\033]6;1;bg;{};brightness;{}\a".format(color, int(hex_color[idx*2+1:idx*2+3],16))),
+            print("\033]6;1;bg;{};brightness;{}\a".format(color, int(hex_color[idx*2:idx*2+2],16))),
 
 
 def pipereader(in_pipe, out_pipe, queue):
@@ -32,15 +35,33 @@ def pipereader(in_pipe, out_pipe, queue):
         line = in_pipe.readline()
         queue.put(item=(line, out_pipe), block=True)
 
+class ConfigError(Exception):
+    pass
+
 def loadconfig(filename):
     fp = open(filename)
-    cfg = yaml.load(fp)
+
+    cfg = json.load(fp)
+
+    for cmd in cfg["commands"].iterkeys():
+        for match in cfg["commands"][cmd]:
+            if match["color"] not in cfg["colors"]:
+                raise ConfigError("Color error")
+
     return cfg
 
 # colors, as RGB hex
-COLORS = loadconfig("/Users/kalafut/dev/tabwatch/test.json")["colors"]
+try:
+    COLORS = loadconfig(CONFIG)["colors"]
+except Exception as e:
+    print e
 
 def run():
+    cfg = loadconfig(CONFIG)
+
+    cmd = sys.argv[1]
+    matchers = cfg["commands"][cmd]
+
     proc = subprocess.Popen(sys.argv[1:], stdout=PIPE, stderr=PIPE)
     queue = Queue.Queue(maxsize=10)
 
@@ -59,10 +80,12 @@ def run():
             # escape characters to avoid a bunch of blank lines.
             out_pipe.write(line.rstrip())
 
-            for pat in PATTERNS:
-                if pat[0] in line and (pat[1] == None or pat[1] in last_match):
+            for matcher in matchers:
+                pat = matcher["regex"]
+                #if pat[0] in line and (pat[1] == None or pat[1] in last_match):
+                if re.search(pat, line):
                     last_match = line
-                    set_color(COLORS.get(pat[2]))
+                    set_color(COLORS.get(matcher["color"]))
                     sys.stdout.flush()
                     break
             out_pipe.write("\n")

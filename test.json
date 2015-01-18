@@ -1,8 +1,27 @@
 {
-    "colors":
-        {
-            "green":  "#0ceb43",
-            "red":    "#f5384b",
-            "yellow": "#dff51d"
-        }
+    "colors": {
+        "green": "0ceb43",
+        "red": "f5384b",
+        "yellow": "dff51d"
+    },
+    "commands": {
+        "glitch": [
+            {
+                "regex": "glitch: all OK",
+                "color": "green"
+            }
+        ],
+        "nodemon": [
+            {
+                "regex": "[nodemod] clean",
+                "color": "green",
+                "window": 1
+            },
+            {
+                "regex": "[nodemod] app crashed",
+                "color": "red",
+                "window": 5
+            }
+        ]
+    }
 }
