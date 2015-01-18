@@ -1,0 +1,15 @@
+colors:
+    red: f5384b
+    yellow: dff51d
+    green: 0ceb43
+
+commands:
+    nodemon:
+        -
+          regex: blah
+          color: red
+          window: 5
+        -
+          regex: blah
+          color: red
+          window: 5

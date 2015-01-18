@@ -6,6 +6,7 @@ import subprocess
 from subprocess import PIPE
 import sys
 import threading
+import yaml
 
 
 PATTERNS = [
@@ -23,22 +24,21 @@ def set_color(hex_color):
 
     if hex_color:
         for idx, color in enumerate(["red", "green", "blue"]):
-            print("\033]6;1;bg;{};brightness;{}\a".format(color, int(hex_color[idx*2+1:idx*2+3],16)))
+            print("\033]6;1;bg;{};brightness;{}\a".format(color, int(hex_color[idx*2+1:idx*2+3],16))),
 
 
 def pipereader(in_pipe, out_pipe, queue):
     while True:
         line = in_pipe.readline()
-        out_pipe.write(line)
-        queue.put(item=line, block=True)
+        queue.put(item=(line, out_pipe), block=True)
 
 def loadconfig(filename):
     fp = open(filename)
-    cfg = json.load(fp)
+    cfg = yaml.load(fp)
     return cfg
 
 # colors, as RGB hex
-COLORS = loadconfig("test.json")["colors"]
+COLORS = loadconfig("/Users/kalafut/dev/tabwatch/test.json")["colors"]
 
 def run():
     proc = subprocess.Popen(sys.argv[1:], stdout=PIPE, stderr=PIPE)
@@ -53,7 +53,11 @@ def run():
     try:
         last_match = ""
         while True:
-            line = queue.get(block=True).strip()
+            line, out_pipe = queue.get(block=True)
+
+            # Remove newline here and put it back after the escape
+            # escape characters to avoid a bunch of blank lines.
+            out_pipe.write(line.rstrip())
 
             for pat in PATTERNS:
                 if pat[0] in line and (pat[1] == None or pat[1] in last_match):
@@ -61,6 +65,7 @@ def run():
                     set_color(COLORS.get(pat[2]))
                     sys.stdout.flush()
                     break
+            out_pipe.write("\n")
 
     except KeyboardInterrupt:
         set_color(None)
